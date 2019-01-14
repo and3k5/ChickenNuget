@@ -1,0 +1,61 @@
+﻿@using System.Web
+@using Newtonsoft.Json
+@model IDictionary<string, string>
+
+@{
+    var model = Model;
+    if (model == null)
+    {
+        model = new Dictionary<string, string>();
+    }
+}
+    
+<script type="text/x-template" id="parameter-template">
+    <div>
+        <template v-for="row in model">
+            <input type="text" v-bind="{name: 'Parameters['+model.indexOf(row)+'].Key'}" v-model="row.key" />
+            <input type="text" v-bind="{name: 'Parameters['+model.indexOf(row)+'].Value'}" v-model="row.value" />
+            <button type="button" class="btn btn-danger" @@click="removeRow(model.indexOf(row))">Remove</button>
+        </template>
+        <button type="button" class="btn btn-default" @@click="insertRow()">Add</button>
+    </div>
+</script>
+    
+<script type="text/javascript">
+    Vue.component('parameter-input', {
+        template: '#parameter-template',
+        props: {
+            model: Array
+        },
+        methods: {
+            getTargetName: function (value) {
+                return this.model.settlementConfig.targets.filter(function(t) {
+                    return t.value == value;
+                })[0].text;
+            },
+            insertRow: function (before,index) {
+                var newRow = [{key: "",value: ""}];
+                this.model.push(newRow);
+            },
+            removeRow: function (index) {
+                this.model.splice(index,1);
+            }
+        }
+    });
+
+
+</script>
+    
+<div id="paraInput">
+    <parameter-input :model="value"></parameter-input>
+</div>
+
+<script type="text/javascript">
+    var demo = new Vue({
+        el: '#paraInput',
+        data: {
+            value: JSON.parse("@(Html.Raw(HttpUtility.JavaScriptStringEncode(JsonConvert.SerializeObject(model.Select(kv => new { key = kv.Key, value = kv.Value })))))"),
+        }
+    });
+
+</script>
