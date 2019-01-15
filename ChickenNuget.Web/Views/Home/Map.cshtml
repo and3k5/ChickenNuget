@@ -1,0 +1,121 @@
+﻿@using ChickenNuget.Data
+@using Newtonsoft.Json
+@using Newtonsoft.Json.Linq
+@model List<Tuple<IProjectReference, Dictionary<IProjectFile, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>>
+
+@if (Model != null)
+{
+    var jsonWriter = new JTokenWriter();
+    jsonWriter.WriteStartArray();
+
+    foreach (var tuple in Model)
+    {
+        jsonWriter.WriteStartObject();
+
+        jsonWriter.WritePropertyName("projectName");
+        jsonWriter.WriteValue(tuple.Item1.GetName());
+
+        jsonWriter.WritePropertyName("nugetDependencies");
+        jsonWriter.WriteStartArray();
+        foreach (var kvp in tuple.Item2)
+        {
+            jsonWriter.WriteStartObject();
+
+            jsonWriter.WritePropertyName("filepath");
+            jsonWriter.WriteValue(kvp.Key.FilePath());
+
+            jsonWriter.WritePropertyName("nugetPackages");
+            jsonWriter.WriteStartArray();
+            foreach (var nugetDependency in kvp.Value)
+            {
+                jsonWriter.WriteStartObject();
+
+                jsonWriter.WritePropertyName("id");
+                jsonWriter.WriteValue(nugetDependency.Id);
+
+                jsonWriter.WritePropertyName("version");
+                jsonWriter.WriteValue(nugetDependency.Version);
+
+                jsonWriter.WriteEndObject();
+            }
+            jsonWriter.WriteEndArray();
+
+            jsonWriter.WriteEndObject();
+        }
+        jsonWriter.WriteEndArray();
+
+        jsonWriter.WritePropertyName("nugetDefinitions");
+        jsonWriter.WriteStartArray();
+        foreach (var kvp in tuple.Item3)
+        {
+            jsonWriter.WriteStartObject();
+
+            jsonWriter.WritePropertyName("filepath");
+            jsonWriter.WriteValue(kvp.Key.FilePath());
+
+            jsonWriter.WritePropertyName("id");
+            jsonWriter.WriteValue(kvp.Value.Id);
+
+            jsonWriter.WriteEndObject();
+        }
+        jsonWriter.WriteEndArray();
+
+        jsonWriter.WriteEndObject();
+    }
+
+    jsonWriter.WriteEndArray();
+
+
+    <script type="text/x-template" id="map-template">
+        <div>
+            <img v-bind="{'data-uml': umlCode}" />
+        </div>
+    </script>
+
+    <script type="text/javascript">
+        Vue.component('map-data',
+            {
+                template: '#map-template',
+                props: {
+                    model: Array
+                },
+                computed: {
+                    umlCode: function(index) {
+                        // this.model
+                        var result = "";
+
+                        for (var i = 0; i < this.model.length; i++) {
+                            for (var j = 0; j < this.model[i].nugetDependencies.length; j++) {
+                                for (var k = 0; k < this.model[i].nugetDependencies[j].nugetPackages.length; k++) {
+                                    var package = this.model[i].nugetDependencies[j].nugetPackages[k];
+                                    result += "\n(" + package.id + ")\n\n";
+                                }
+                            }
+                        }
+
+                        return result;
+                    }
+                }
+            });
+
+
+    </script>
+
+    <div id="mapElement">
+        <map-data :model="mapData"></map-data>
+    </div>
+
+    <script type="text/javascript">
+        var mapData = @Html.Raw(jsonWriter.Token.ToString(Formatting.Indented));
+        var map = new Vue({
+            el: "#mapElement",
+            data: {
+                mapData: mapData
+            }
+        });
+    </script>
+}
+else
+{
+    <div>Missing config setup</div>
+}

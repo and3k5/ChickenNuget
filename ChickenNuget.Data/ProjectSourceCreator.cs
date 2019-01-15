@@ -15,7 +15,7 @@ namespace ChickenNuget.Data
                     source = new GitlabProvider();
                     break;
             }
-            
+
             source.InitializeSettings(config);
 
             return source;

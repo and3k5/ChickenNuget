@@ -7,6 +7,7 @@ namespace ChickenNuget.Data
     {
         public abstract IDictionary<string, ParameterSpecs> GetAuthenticationKeys();
         public abstract IDictionary<string, ParameterSpecs> GetParameterKeys();
+
         public virtual void InitializeSettings(Configuration config)
         {
             Config = config;
@@ -14,8 +15,9 @@ namespace ChickenNuget.Data
 
         protected Configuration Config;
 
-        public abstract IProjectReference[] GetAllProjects();
-        public abstract IProjectFile[] GetAllNugetPackagesConfig(IProjectReference reference);
+        public abstract IProjectReference[] GetAllProjects(bool clearCache);
+        public abstract IProjectFile[] GetAllNugetPackagesConfig(IProjectReference reference, bool clearCache);
+
         public CacheControl GetCacheControl()
         {
             return new CacheControl(this, Config);
@@ -23,6 +25,10 @@ namespace ChickenNuget.Data
 
         public abstract IProjectFile ConstructProjectFile(IDictionary<string, string> data);
         public abstract Dictionary<string, string> PackProjectFile(IProjectFile projectFile);
-        public abstract IProjectFile[] GetAllNugetSpecFiles(IProjectReference reference);
+        public abstract IProjectFile[] GetAllNugetSpecFiles(IProjectReference reference, bool clearCache);
+        public abstract Dictionary<IProjectFile, NugetDependency[]> GetAllNugetDependencies(IProjectReference reference, bool clearCache);
+        public abstract Dictionary<IProjectFile, NugetDefinition> GetAllNugetDefinitions(IProjectReference reference, bool clearCache);
+        public abstract IChickenNugetProject ReadChickenNugetProject(IProjectReference reference, bool clearCache);
+        public abstract void CreateChickenNugetProject(IProjectReference proj);
     }
 }

@@ -9,7 +9,7 @@
         model = new Dictionary<string, string>();
     }
 }
-    
+
 <script type="text/x-template" id="parameter-template">
     <div>
         <template v-for="row in model">
@@ -20,32 +20,33 @@
         <button type="button" class="btn btn-default" @@click="insertRow()">Add</button>
     </div>
 </script>
-    
+
 <script type="text/javascript">
-    Vue.component('parameter-input', {
-        template: '#parameter-template',
-        props: {
-            model: Array
-        },
-        methods: {
-            getTargetName: function (value) {
-                return this.model.settlementConfig.targets.filter(function(t) {
-                    return t.value == value;
-                })[0].text;
+    Vue.component('parameter-input',
+        {
+            template: '#parameter-template',
+            props: {
+                model: Array
             },
-            insertRow: function (before,index) {
-                var newRow = [{key: "",value: ""}];
-                this.model.push(newRow);
-            },
-            removeRow: function (index) {
-                this.model.splice(index,1);
+            methods: {
+                getTargetName: function(value) {
+                    return this.model.settlementConfig.targets.filter(function(t) {
+                        return t.value == value;
+                    })[0].text;
+                },
+                insertRow: function(before, index) {
+                    var newRow = [{ key: "", value: "" }];
+                    this.model.push(newRow);
+                },
+                removeRow: function(index) {
+                    this.model.splice(index, 1);
+                }
             }
-        }
-    });
+        });
 
 
 </script>
-    
+
 <div id="paraInput">
     <parameter-input :model="value"></parameter-input>
 </div>
@@ -54,7 +55,7 @@
     var demo = new Vue({
         el: '#paraInput',
         data: {
-            value: JSON.parse("@(Html.Raw(HttpUtility.JavaScriptStringEncode(JsonConvert.SerializeObject(model.Select(kv => new { key = kv.Key, value = kv.Value })))))"),
+            value: JSON.parse("@(Html.Raw(HttpUtility.JavaScriptStringEncode(JsonConvert.SerializeObject(model.Select(kv => new {key = kv.Key, value = kv.Value})))))"),
         }
     });
 

@@ -12,7 +12,7 @@ namespace ChickenNuget.Data
 
         public void InitializeProjectSource()
         {
-            var config = ConfigProvider.GetConfig((int?)null);
+            var config = ConfigProvider.GetConfig((int?) null);
             if (config != null)
             {
                 ProjectSource = ProjectSourceCreator.Create(config);

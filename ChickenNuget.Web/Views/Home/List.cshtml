@@ -1,0 +1,72 @@
+﻿@using ChickenNuget.Data
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+@if (ViewBag.HasConfig == false)
+{
+    <div class="jumbotron">
+        <h1>Config missing</h1>
+        <p class="lead">Configuration is not found</p>
+        <p class="lead">
+            <a class="btn btn-primary btn-lg" href="@Url.Action("Configuration")" role="button">Create a new config</a>
+        </p>
+    </div>
+}
+else
+{
+    var nugetOverview = (List<Tuple<IProjectReference, IProjectFile[], IProjectFile[], bool>>) ViewBag.NugetOverview;
+
+    <div class="row">
+        <div class="col-lg-12">
+            <h2>Nuget overview</h2>
+            <div>
+                <p>Connection: @ViewBag.ConnectionName</p>
+                <p>Source: @ViewBag.ConnectionType</p>
+            </div>
+            <table class="table table-striped table-bordered">
+                <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Package.configs</th>
+                    <th>Nuspecs</th>
+                    <th>Has json definition</th>
+                    <th>Create JSON</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var project in nugetOverview)
+                {
+                    for (var i = 0; i < Math.Max(project.Item2.Length, project.Item3.Length); i++)
+                    {
+                        var packageConfig = project.Item2.ElementAtOrDefault(i);
+                        var nuspecFile = project.Item3.ElementAtOrDefault(i);
+                        <tr>
+                            @if (Array.IndexOf(project.Item2, packageConfig) == 0 || Array.IndexOf(project.Item3, nuspecFile) == 0)
+                            {
+                                <td rowspan="@Math.Max(project.Item2.Length, project.Item3.Length)">@project.Item1.GetName()</td>
+                            }
+                            <td>@packageConfig?.FilePath()</td>
+                            <td>@nuspecFile?.FilePath()</td>
+                            @if (Array.IndexOf(project.Item2, packageConfig) == 0 || Array.IndexOf(project.Item3, nuspecFile) == 0)
+                            {
+                                <td rowspan="@Math.Max(project.Item2.Length, project.Item3.Length)">@(project.Item4 ? "Yes" : "No")</td>
+                                if (project.Item4 == false)
+                                {
+                                    <td rowspan="@Math.Max(project.Item2.Length, project.Item3.Length)">
+                                        <a href="@Url.Action("CreateChickenNugetJson", new {project = project.Item1.GetIdentifier(),})">Create chickennuget file</a>
+                                    </td>
+                                }
+                                else
+                                {
+                                    <td rowspan="@Math.Max(project.Item2.Length, project.Item3.Length)"></td>
+                                }
+                            }
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

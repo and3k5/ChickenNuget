@@ -6,19 +6,18 @@ namespace ChickenNuget.Data
 
 namespace ChickenNuget.Data.Config
 {
-    public class ConfigProvider : DataStorageProvider {
-        
+    public class ConfigProvider : DataStorageProvider
+    {
         public ConfigProvider() : base(@"Config.db")
         {
-
         }
 
         public Configuration GetConfig(int? configuration)
         {
-            using(var db = CreateStorage())
+            using (var db = CreateStorage())
             {
                 var configs = Configurations(db);
- 
+
                 if (configuration == null)
                     return configs.FindOne(x => true);
                 else
@@ -30,7 +29,7 @@ namespace ChickenNuget.Data.Config
         {
             return db.GetCollection<Configuration>("configuration");
         }
-        
+
         public void SaveConfig(Configuration config)
         {
             using (var db = CreateStorage())

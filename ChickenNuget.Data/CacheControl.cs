@@ -28,7 +28,7 @@ namespace ChickenNuget.Data
                 var identifier = project.GetIdentifier();
                 var cache = GetProjectFileCache(db).FindOne(c => c.ConfigurationId == _config.Id && c.Key == key && c.ProjectIdentifier == identifier);
 
-                if (cache == null) 
+                if (cache == null)
                     return null;
 
                 var list = new List<IProjectFile>();
@@ -41,7 +41,6 @@ namespace ChickenNuget.Data
 
                 return list.ToArray();
             }
-
         }
 
         public void StoreCacheProjectFiles(string key, IProjectReference project, IProjectFile[] value)
@@ -51,7 +50,7 @@ namespace ChickenNuget.Data
                 var caches = GetProjectFileCache(db);
                 var identifier = project.GetIdentifier();
                 caches.Delete(c => c.ConfigurationId == _config.Id && c.Key == key && c.ProjectIdentifier == identifier);
-                
+
                 var cache = new ProjectFileListCache()
                 {
                     Key = key,
@@ -68,9 +67,9 @@ namespace ChickenNuget.Data
         {
             public int Id { get; set; }
             public int ConfigurationId { get; set; }
-            public string ProjectIdentifier {get;set;}
+            public string ProjectIdentifier { get; set; }
             public string Key { get; set; }
-            public Dictionary<string,string>[] Files { get; set; }
+            public Dictionary<string, string>[] Files { get; set; }
         }
     }
 }

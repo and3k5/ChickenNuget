@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using ChickenNuget.Data;
@@ -17,17 +18,22 @@ namespace ChickenNuget.Web.Controllers
     {
         public IActionResult Index()
         {
+            return View();
+        }
+
+        public IActionResult List()
+        {
             if (ViewBag.HasConfig = BaseProvider.ConfigProvider.HasConfig())
             {
                 BaseProvider.InitializeProjectSource();
                 var source = BaseProvider.ProjectSource;
-                var config = BaseProvider.ConfigProvider.GetConfig((int?)null);
+                var config = BaseProvider.ConfigProvider.GetConfig((int?) null);
                 ViewBag.ConnectionName = config.Name;
                 ViewBag.ConnectionType = config.ProjectSource.ToString("G");
 
-                var model = new Dictionary<IProjectReference, IProjectFile[]>();
-                
-                var projects = source.GetAllProjects();
+                var model = new List<Tuple<IProjectReference, IProjectFile[], IProjectFile[], bool>>();
+
+                var projects = source.GetAllProjects(false);
 
                 var tasks = new List<Task>();
 
@@ -35,9 +41,11 @@ namespace ChickenNuget.Web.Controllers
                 {
                     tasks.Add(Task.Run(() =>
                     {
-                        var files = source.GetAllNugetPackagesConfig(project);
-                        if (files.Length > 0)
-                            model.Add(project, files);
+                        var chickenNugetProject = source.ReadChickenNugetProject(project, false);
+                        var packagesConfig = source.GetAllNugetPackagesConfig(project, false);
+                        var nuspecFiles = source.GetAllNugetSpecFiles(project, false);
+                        if (packagesConfig.Length > 0 || nuspecFiles.Length > 0)
+                            model.Add(new Tuple<IProjectReference, IProjectFile[], IProjectFile[], bool>(project, packagesConfig, nuspecFiles, chickenNugetProject != null));
                     }));
                 }
 
@@ -45,16 +53,18 @@ namespace ChickenNuget.Web.Controllers
 
                 ViewBag.NugetOverview = model;
             }
+
             return View();
         }
 
         public IActionResult Configuration(int id = 0)
         {
-            var config = BaseProvider.ConfigProvider.GetConfig(id == 0 ? (int?)null : id);
+            var config = BaseProvider.ConfigProvider.GetConfig(id == 0 ? (int?) null : id);
             if (config == null)
             {
                 config = new Configuration();
             }
+
             return View(config);
         }
 
@@ -63,6 +73,40 @@ namespace ChickenNuget.Web.Controllers
         {
             new ConfigProvider().SaveConfig(model);
             return RedirectToAction("Configuration", new {id = model.Id});
+        }
+
+        public IActionResult Map()
+        {
+            if (ViewBag.HasConfig = BaseProvider.ConfigProvider.HasConfig())
+            {
+                BaseProvider.InitializeProjectSource();
+                var source = BaseProvider.ProjectSource;
+
+                var model = new List<Tuple<IProjectReference, Dictionary<IProjectFile, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>>();
+
+                var projects = source.GetAllProjects(false);
+
+                var tasks = new List<Task>();
+
+                foreach (var project in projects)
+                {
+                    tasks.Add(Task.Run(() =>
+                    {
+                        var nugetDep = source.GetAllNugetDependencies(project, false);
+                        var nugetDef = source.GetAllNugetDefinitions(project, false);
+
+                        if (nugetDep.Count > 0 || nugetDep.Count > 0)
+                            model.Add(new Tuple<IProjectReference, Dictionary<IProjectFile, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>
+                                (project, nugetDep, nugetDef));
+                    }));
+                }
+
+                Task.WhenAll(tasks).Wait();
+
+                return View(model);
+            }
+
+            return View((object) null);
         }
 
         public IActionResult About()
@@ -74,8 +118,42 @@ namespace ChickenNuget.Web.Controllers
 
         public IActionResult Error()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            return View(new ErrorViewModel {RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier});
+        }
+
+        public IActionResult CreateChickenNugetJson(string project)
+        {
+            if (ViewBag.HasConfig = BaseProvider.ConfigProvider.HasConfig())
+            {
+                var result = new System.Text.StringBuilder();
+
+                BaseProvider.InitializeProjectSource();
+                var source = BaseProvider.ProjectSource;
+
+                var model = new List<Tuple<IProjectReference, IProjectFile[], bool>>();
+
+                var projects = source.GetAllProjects(false);
+
+                var tasks = new List<Task>();
+
+                foreach (var proj in projects)
+                {
+                    if (proj.GetIdentifier() == project)
+                    {
+                        result.AppendLine("Found project");
+                        source.CreateChickenNugetProject(proj);
+                        break;
+                    }
+                }
+
+                Task.WhenAll(tasks).Wait();
+
+                result.AppendLine("Done");
+
+                return Content(result.ToString());
+            }
+
+            return Content("Fail");
         }
     }
 }
-
