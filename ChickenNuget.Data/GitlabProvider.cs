@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading.Tasks;
 using ChickenNuget.Data.Config;
 using Newtonsoft.Json;
 using RestSharp;
@@ -135,9 +136,9 @@ namespace ChickenNuget.Data
             public string FilePath() => Path;
         }
 
-        public override Dictionary<IProjectFile, NugetDependency[]> GetAllNugetDependencies(IProjectReference reference, bool clearCache)
+        public override Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]> GetAllNugetDependencies(IProjectReference reference, bool clearCache)
         {
-            var cache = SimpleCache<Tuple<int, string>, Dictionary<IProjectFile, NugetDependency[]>>.CreateCache("Source-Project-AllNugetDependencies");
+            var cache = SimpleCache<Tuple<int, string>, Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]>>.CreateCache("Source-Project-AllNugetDependencies");
             if (!clearCache)
             {
                 var cacheObj = cache.Get(new Tuple<int, string>(this.Config.Id, reference.GetIdentifier()));
@@ -145,12 +146,13 @@ namespace ChickenNuget.Data
                     return cacheObj;
             }
 
-            var result = new Dictionary<IProjectFile, NugetDependency[]>();
+            var result = new Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]>();
             var packageFiles = GetAllNugetPackagesConfig(reference, clearCache);
             if (packageFiles == null || packageFiles.Length == 0)
                 return result;
 
             var client = CreateRestClient();
+            var allFiles = Task.Run(() => GetAllProjectFiles(reference, clearCache));
 
             foreach (var packageFile in packageFiles)
             {
@@ -164,12 +166,64 @@ namespace ChickenNuget.Data
                 if (response.StatusCode == HttpStatusCode.NotFound)
                     throw new Exception("Failed to read " + file.Path + " from " + reference.GetName() + ": 404 not found");
 
-                result.Add(file, PackagesConfigReader.Parse(response.Content).ToArray());
+                var csprojFiles = allFiles.Result.Where(f =>
+                {
+                    var fPath = f.FilePath().AsPath(true);
+                    return fPath.FileExtension == "csproj" && fPath.IsInSameDirectory(file.FilePath());
+                }).ToArray();
+
+                string assemblyName;
+                string csprojFilePath;
+
+                if (csprojFiles.Length > 0)
+                {
+                    if (csprojFiles.Length > 1)
+                    {
+                        throw new Exception("Failed because of multiple csproj files: " + string.Join(", ", csprojFiles.Select(x => x.FilePath())));
+                    }
+
+                    var csprojFile = csprojFiles[0];
+                    var csprojFileRequest = CreateFileReadRequest((ProjectReference) reference, csprojFile.FilePath(), "master");
+
+                    var csprojFileResponse = client.Execute(csprojFileRequest);
+
+                    if (csprojFileResponse.ErrorException != null)
+                        throw new Exception("Failed to read " + csprojFile.FilePath() + " from " + reference.GetName(), csprojFileResponse.ErrorException);
+
+                    if (csprojFileResponse.StatusCode == HttpStatusCode.NotFound)
+                        throw new Exception("Failed to read " + csprojFile.FilePath() + " from " + reference.GetName() + ": 404 not found");
+
+                    var csprojContnet = PackageNuspecReader.ParseCsproj(csprojFileResponse.Content);
+
+                    assemblyName = csprojContnet.Id;
+                    csprojFilePath = csprojFile.FilePath();
+                }
+                else
+                {
+                    throw new Exception("Could not find any matching csproj for: " + file.FilePath());
+                }
+
+
+                IProjectInformation projectInformation = new ProjectInformation(assemblyName, csprojFilePath);
+
+                result.Add(new Tuple<IProjectFile, IProjectInformation>(file, projectInformation), PackagesConfigReader.Parse(response.Content).ToArray());
             }
 
             cache.Insert(new Tuple<int, string>(this.Config.Id, reference.GetIdentifier()), result);
 
             return result;
+        }
+
+        private class ProjectInformation : IProjectInformation
+        {
+            public ProjectInformation(string assemblyName, string csprojFilePath)
+            {
+                AssemblyName = assemblyName;
+                CsprojFilePath = csprojFilePath;
+            }
+
+            public string AssemblyName { get; }
+            public string CsprojFilePath { get; }
         }
 
         public override Dictionary<IProjectFile, NugetDefinition> GetAllNugetDefinitions(IProjectReference reference, bool clearCache)

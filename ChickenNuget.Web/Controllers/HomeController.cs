@@ -82,7 +82,7 @@ namespace ChickenNuget.Web.Controllers
                 BaseProvider.InitializeProjectSource();
                 var source = BaseProvider.ProjectSource;
 
-                var model = new List<Tuple<IProjectReference, Dictionary<IProjectFile, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>>();
+                var model = new List<Tuple<IProjectReference, Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>>();
 
                 var projects = source.GetAllProjects(false);
 
@@ -90,15 +90,7 @@ namespace ChickenNuget.Web.Controllers
 
                 foreach (var project in projects)
                 {
-                    tasks.Add(Task.Run(() =>
-                    {
-                        var nugetDep = source.GetAllNugetDependencies(project, false);
-                        var nugetDef = source.GetAllNugetDefinitions(project, false);
-
-                        if (nugetDep.Count > 0 || nugetDep.Count > 0)
-                            model.Add(new Tuple<IProjectReference, Dictionary<IProjectFile, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>
-                                (project, nugetDep, nugetDef));
-                    }));
+                    tasks.Add(FetchDependencyMapItems(source, project, model));
                 }
 
                 Task.WhenAll(tasks).Wait();
@@ -107,6 +99,26 @@ namespace ChickenNuget.Web.Controllers
             }
 
             return View((object) null);
+        }
+
+        private static Task FetchDependencyMapItems(IProjectSource source, IProjectReference project, List<Tuple<IProjectReference, Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>> model)
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    var nugetDep = source.GetAllNugetDependencies(project, false);
+                    var nugetDef = source.GetAllNugetDefinitions(project, false);
+                    // Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]>
+                    if (nugetDep.Count > 0 || nugetDep.Count > 0)
+                        model.Add(new Tuple<IProjectReference, Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>
+                            (project, nugetDep, nugetDef));
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception("Failed for project: " + project.GetName(), ex);
+                }
+            });
         }
 
         public IActionResult About()

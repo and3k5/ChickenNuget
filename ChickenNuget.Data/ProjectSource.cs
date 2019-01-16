@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using ChickenNuget.Data.Config;
 
 namespace ChickenNuget.Data
@@ -26,7 +27,7 @@ namespace ChickenNuget.Data
         public abstract IProjectFile ConstructProjectFile(IDictionary<string, string> data);
         public abstract Dictionary<string, string> PackProjectFile(IProjectFile projectFile);
         public abstract IProjectFile[] GetAllNugetSpecFiles(IProjectReference reference, bool clearCache);
-        public abstract Dictionary<IProjectFile, NugetDependency[]> GetAllNugetDependencies(IProjectReference reference, bool clearCache);
+        public abstract Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]> GetAllNugetDependencies(IProjectReference reference, bool clearCache);
         public abstract Dictionary<IProjectFile, NugetDefinition> GetAllNugetDefinitions(IProjectReference reference, bool clearCache);
         public abstract IChickenNugetProject ReadChickenNugetProject(IProjectReference reference, bool clearCache);
         public abstract void CreateChickenNugetProject(IProjectReference proj);

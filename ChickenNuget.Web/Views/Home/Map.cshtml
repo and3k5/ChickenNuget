@@ -1,7 +1,7 @@
 ﻿@using ChickenNuget.Data
 @using Newtonsoft.Json
 @using Newtonsoft.Json.Linq
-@model List<Tuple<IProjectReference, Dictionary<IProjectFile, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>>
+@model List<Tuple<IProjectReference, Dictionary<Tuple<IProjectFile, IProjectInformation>, NugetDependency[]>, Dictionary<IProjectFile, NugetDefinition>>>
 
 @if (Model != null)
 {
@@ -22,7 +22,16 @@
             jsonWriter.WriteStartObject();
 
             jsonWriter.WritePropertyName("filepath");
-            jsonWriter.WriteValue(kvp.Key.FilePath());
+            jsonWriter.WriteValue(kvp.Key.Item1.FilePath());
+
+            jsonWriter.WritePropertyName("assemblyName");
+            jsonWriter.WriteValue(kvp.Key.Item2.AssemblyName);
+
+            jsonWriter.WritePropertyName("csprojFilePath");
+            jsonWriter.WriteValue(kvp.Key.Item2.CsprojFilePath);
+
+            jsonWriter.WritePropertyName("visible");
+            jsonWriter.WriteValue(true);
 
             jsonWriter.WritePropertyName("nugetPackages");
             jsonWriter.WriteStartArray();
@@ -69,31 +78,136 @@
     <script type="text/x-template" id="map-template">
         <div>
             <img v-bind="{'data-uml': umlCode}" />
+            <button type="button" class="btn btn-default" @@click="toggleAllWith('test')">Toggle all test</button>
+            <div class="col-lg-6">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <td>Visible</td>
+                            <td>Project</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template v-for="item in model">
+                            <tr v-for="nugetDependency in item.nugetDependencies">
+                                <td><input type="checkbox" v-model="nugetDependency.visible" /></td>
+                                <td>
+                                    <span v-bind="{'style': nugetDependency.visible ? 'font-weight: bold;' : ''}">
+                                        {{nugetDependency.assemblyName}}
+                                    </span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-lg-6">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <td>Group Visible</td>
+                            <td>Visible</td>
+                            <td>Dependency</td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="nugetPackage in allDependencies" v-if="allDependencies.indexOf(nugetPackage) == allDependencies.indexOf(allDependencies.filter(d => d.id == nugetPackage.id && d.version == nugetPackage.version)[0])">
+                            <td v-if="allDependencies.indexOf(nugetPackage) == 0 || allDependencies[allDependencies.indexOf(nugetPackage)-1].id.split('.')[0].toLowerCase() != nugetPackage.id.split('.')[0].toLowerCase()" v-bind="{'rowspan': allDependencies.filter((d,i,s) => d.id.split('.')[0].toLowerCase() == nugetPackage.id.split('.')[0].toLowerCase()).filter((d,i,s) => s.indexOf(s.filter(a => (a.id+'-'+a.version) === (d.id+'-'+d.version))[0]) === i).length}">
+                                {{nugetPackage.id.split(".")[0].toLowerCase()}}
+                                <button type="button" class="btn btn-default" @@click="togglePackagesWithStart(nugetPackage.id.split('.')[0])">Toggle group</button>
+                            </td>
+                            <td><input type="checkbox" v-model="dependencyVisibility.filter(n => n.id == nugetPackage.id)[0].visible" /></td>
+                            <td>
+                                <span v-bind="{'style': dependencyVisibility.filter(n => n.id == nugetPackage.id)[0].visible ? 'font-weight: bold;' : ''}">
+                                    {{nugetPackage.id}}-{{nugetPackage.version}}
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </script>
 
     <script type="text/javascript">
+        var numberArrayToAssocArray = function(array, indexSelector, valueSelector) {
+            var result = [];
+            for (var i = 0; i < array.length; i++) {
+                var index = indexSelector(array[i], i, array);
+                var value = valueSelector(array[i], i, array);
+
+                result[index] = value;
+            }
+
+            return result;
+        };
+
         Vue.component('map-data',
             {
                 template: '#map-template',
                 props: {
                     model: Array
                 },
+                data: function() {
+                    return {
+                        dependencyVisibility: /*numberArrayToAssocArray(*/this.model.map(m => m.nugetDependencies.map(nd => nd.nugetPackages)).reduce((a, b) => a.concat(b)).reduce((a, b) => a.concat(b)).sort(function(a, b) {
+                            var strA = a.id + "-" + a.version;
+                            var strB = b.id + "-" + b.version;
+                            return strA.localeCompare(strB);
+                        }).filter(function(d, index, self) {
+                            return self.indexOf(self.filter(a => a.id === d.id)[0]) === index;
+                        }).map(d =>
+                            ({ "id": d.id, visible: true })
+                        ) //,i => i.id,v => v)
+                        //visibleDependencies: this.model.map(m => m.nugetDependencies.map(nd => nd.nugetPackages))
+                        // mapData.map(m => m.nugetDependencies.map(nd => nd.nugetPackages)).reduce((a,b) => a.concat(b)).reduce((a,b) => a.concat(b))
+                    }
+                },
+                methods: {
+                    toggleAllWith: function(needle) {
+                        for (var i = 0; i < this.model.length; i++) {
+                            for (var j = 0; j < this.model[i].nugetDependencies.length; j++) {
+                                if (this.model[i].nugetDependencies[j].assemblyName.toLowerCase().indexOf(needle) !== -1)
+                                    this.model[i].nugetDependencies[j].visible = !this.model[i].nugetDependencies[j].visible;
+                            }
+                        }
+                    },
+                    togglePackagesWithStart: function(start) {
+                        var newValue = null;
+                        for (var i = 0; i < this.dependencyVisibility.length; i++)
+                            if (this.dependencyVisibility[i].id.split(".")[0].toLowerCase() === start.toLowerCase()) {
+                                if (newValue == null)
+                                    newValue = !this.dependencyVisibility[i].visible;
+                                this.dependencyVisibility[i].visible = newValue;
+                            }
+                    }
+                },
                 computed: {
-                    umlCode: function(index) {
+                    umlCode: function() {
                         // this.model
                         var result = "";
 
                         for (var i = 0; i < this.model.length; i++) {
                             for (var j = 0; j < this.model[i].nugetDependencies.length; j++) {
+                                if (this.model[i].nugetDependencies[j].visible !== true)
+                                    continue;
                                 for (var k = 0; k < this.model[i].nugetDependencies[j].nugetPackages.length; k++) {
                                     var package = this.model[i].nugetDependencies[j].nugetPackages[k];
-                                    result += "\n(" + package.id + ")\n\n";
+                                    if (this.dependencyVisibility.filter(d => d.id == package.id)[0].visible != true)
+                                        continue;
+                                    result += "\n(" + this.model[i].nugetDependencies[j].assemblyName + ") --> (" + package.id + ")\n\n";
                                 }
                             }
                         }
 
                         return result;
+                    },
+                    allDependencies: function() {
+                        return this.model.map(m => m.nugetDependencies.map(nd => nd.nugetPackages)).reduce((a, b) => a.concat(b)).reduce((a, b) => a.concat(b)).sort(function(a, b) {
+                            var strA = a.id + "-" + a.version;
+                            var strB = b.id + "-" + b.version;
+                            return strA.localeCompare(strB);
+                        });
                     }
                 }
             });
